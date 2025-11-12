@@ -99,16 +99,6 @@ export async function createToken(
       ASSOCIATED_TOKEN_PROGRAM_ID
     );
 
-    // Get metadata account
-    const [metadata] = PublicKey.findProgramAddressSync(
-      [
-        Buffer.from("metadata"),
-        METADATA_PROGRAM_ID.toBuffer(),
-        mint.publicKey.toBuffer(),
-      ],
-      METADATA_PROGRAM_ID
-    );
-
     // Send transaction using Anchor
     const signature = await program.methods
       .createV2(params.name, params.symbol, params.uri, params.creator, params.isMayhemMode)
@@ -118,20 +108,17 @@ export async function createToken(
         bondingCurve: bondingCurve,
         associatedBondingCurve: bondingCurveAta,
         global: GLOBAL_ACCOUNT,
-        mplTokenMetadata: METADATA_PROGRAM_ID,
-        metadata: metadata,
         user: wallet.publicKey,
         systemProgram: SYSTEM_PROGRAM_ID,
         tokenProgram: TOKEN_2022_PROGRAM_ID,
         associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-        rent: RENT_PROGRAM_ID,
-        eventAuthority: EVENT_AUTHORITY,
-        program: PUMP_PROGRAM_ID,
         mayhemProgramId: MAYHEM_PROGRAM_ID,
         globalParams: globalParams,
         solVault: solVault,
         mayhemState: mayhemState,
         mayhemTokenVault: mayhemTokenVault,
+        eventAuthority: EVENT_AUTHORITY,
+        program: PUMP_PROGRAM_ID,
       })
       .signers([mint])
       .rpc();
