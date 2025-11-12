@@ -170,7 +170,6 @@ export interface TokenMetadata {
   website?: string;
   twitter?: string;
   telegram?: string;
-  discord?: string;
 }
 
 // Upload metadata JSON to IPFS via server-side API

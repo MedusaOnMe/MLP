@@ -97,7 +97,6 @@ export default function Home() {
         website: website || undefined,
         twitter: twitter || undefined,
         telegram: telegram || undefined,
-        discord: discord || undefined,
       };
       const metadataUri = await uploadMetadataToPinata(metadata);
 
@@ -143,7 +142,6 @@ export default function Home() {
       setWebsite("");
       setTwitter("");
       setTelegram("");
-      setDiscord("");
       const fileInput = document.getElementById("image-input") as HTMLInputElement;
       if (fileInput) fileInput.value = "";
     } catch (err: any) {
@@ -169,7 +167,7 @@ export default function Home() {
             <h1 className="text-6xl font-black bg-gradient-to-r from-purple-400 via-pink-400 to-red-400 bg-clip-text text-transparent mb-2 animate-gradient">
               MayhemPad
             </h1>
-            <p className="text-gray-400 text-lg">Launch tokens with Mayhem Mode 🔥</p>
+            <p className="text-gray-400 text-lg">Launch tokens with Mayhem Mode</p>
           </div>
           <WalletMultiButton className="!bg-gradient-to-r !from-purple-600 !to-red-600 hover:!from-purple-700 hover:!to-red-700 !transition-all !duration-300 !rounded-xl !font-bold" />
         </header>
@@ -178,8 +176,7 @@ export default function Home() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Main Form */}
             <div className="bg-black/40 backdrop-blur-xl border border-purple-500/30 rounded-2xl p-8 shadow-2xl hover:border-purple-500/50 transition-all duration-300">
-              <h2 className="text-3xl font-bold text-white mb-6 flex items-center gap-3">
-                <span className="text-4xl">🚀</span>
+              <h2 className="text-3xl font-bold text-white mb-6">
                 Create Your Token
               </h2>
 
@@ -244,16 +241,16 @@ export default function Home() {
                       disabled={loading}
                       required
                     />
-                    <p className="text-xs text-gray-500 mt-2 flex items-center gap-1">
-                      <span>📌</span> Automatically uploaded to IPFS via Pinata
+                    <p className="text-xs text-gray-500 mt-2">
+                      Automatically uploaded to IPFS via Pinata
                     </p>
                   </div>
                 </div>
 
                 {/* Social Links (Optional) */}
                 <div className="border-t border-purple-500/20 pt-6">
-                  <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                    <span>🌐</span> Social Links (Optional)
+                  <h3 className="text-lg font-bold text-white mb-4">
+                    Social Links (Optional)
                   </h3>
                   <div className="space-y-3">
                     <input
@@ -261,7 +258,7 @@ export default function Home() {
                       value={website}
                       onChange={(e) => setWebsite(e.target.value)}
                       className="w-full px-4 py-2 bg-gray-900/50 border border-purple-500/30 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition text-sm"
-                      placeholder="🌍 Website URL"
+                      placeholder="Website URL"
                       disabled={loading}
                     />
                     <input
@@ -269,7 +266,7 @@ export default function Home() {
                       value={twitter}
                       onChange={(e) => setTwitter(e.target.value)}
                       className="w-full px-4 py-2 bg-gray-900/50 border border-purple-500/30 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition text-sm"
-                      placeholder="🐦 Twitter/X handle"
+                      placeholder="Twitter/X handle"
                       disabled={loading}
                     />
                     <input
@@ -277,15 +274,7 @@ export default function Home() {
                       value={telegram}
                       onChange={(e) => setTelegram(e.target.value)}
                       className="w-full px-4 py-2 bg-gray-900/50 border border-purple-500/30 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition text-sm"
-                      placeholder="✈️ Telegram link"
-                      disabled={loading}
-                    />
-                    <input
-                      type="text"
-                      value={discord}
-                      onChange={(e) => setDiscord(e.target.value)}
-                      className="w-full px-4 py-2 bg-gray-900/50 border border-purple-500/30 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition text-sm"
-                      placeholder="💬 Discord invite"
+                      placeholder="Telegram link"
                       disabled={loading}
                     />
                   </div>
@@ -294,8 +283,7 @@ export default function Home() {
                 {/* Mayhem Mode Toggle */}
                 <div className="flex items-center justify-between p-5 bg-gradient-to-r from-purple-900/40 to-red-900/40 border border-purple-500/50 rounded-xl hover:border-purple-400/70 transition">
                   <div>
-                    <label className="block text-base font-bold text-purple-200 mb-1 flex items-center gap-2">
-                      <span className="text-2xl">⚡</span>
+                    <label className="block text-base font-bold text-purple-200 mb-1">
                       Mayhem Mode
                     </label>
                     <p className="text-xs text-gray-400">Token-2022 with enhanced features</p>
@@ -320,8 +308,7 @@ export default function Home() {
                 <div className="border-t border-purple-500/20 pt-6">
                   <div className="flex items-center justify-between p-4 bg-gray-900/30 border border-gray-600/30 rounded-xl">
                     <div>
-                      <label className="block text-base font-bold text-gray-400 flex items-center gap-2">
-                        <span className="text-2xl">💰</span>
+                      <label className="block text-base font-bold text-gray-400">
                         Dev Buy
                       </label>
                       <p className="text-xs text-gray-500">Coming soon - atomic create + buy in one transaction</p>
@@ -340,27 +327,24 @@ export default function Home() {
                 >
                   {loading ? (
                     <span className="flex items-center justify-center gap-2">
-                      <span className="animate-spin">⏳</span>
                       {status || "Processing..."}
                     </span>
                   ) : (
-                    <span className="flex items-center justify-center gap-2">
-                      🚀 Launch Token
-                    </span>
+                    "Launch Token"
                   )}
                 </button>
 
                 {/* Status Messages */}
                 {error && (
                   <div className="p-4 bg-red-900/30 border border-red-500/50 rounded-xl text-red-200 text-sm animate-in slide-in-from-top">
-                    <span className="font-bold">❌ Error:</span> {error}
+                    <span className="font-bold">Error:</span> {error}
                   </div>
                 )}
 
                 {signature && (
                   <div className="p-4 bg-green-900/30 border border-green-500/50 rounded-xl space-y-2 animate-in slide-in-from-top">
-                    <p className="text-green-200 font-bold flex items-center gap-2">
-                      <span>✅</span> {status}
+                    <p className="text-green-200 font-bold">
+                      {status}
                     </p>
                     <a
                       href={`https://solscan.io/tx/${signature}`}
@@ -379,8 +363,7 @@ export default function Home() {
             <div className="space-y-6">
               {/* What is Mayhem Mode */}
               <div className="bg-gradient-to-br from-purple-900/40 to-pink-900/40 backdrop-blur-xl border border-purple-500/40 rounded-2xl p-6 shadow-xl hover:border-purple-400/60 transition-all duration-300 hover:transform hover:scale-[1.02]">
-                <h3 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
-                  <span className="text-3xl">⚡</span>
+                <h3 className="text-2xl font-bold text-white mb-4">
                   What is Mayhem Mode?
                 </h3>
                 <p className="text-gray-300 mb-4 leading-relaxed">
@@ -409,8 +392,7 @@ export default function Home() {
 
               {/* How it Works */}
               <div className="bg-gradient-to-br from-blue-900/40 to-cyan-900/40 backdrop-blur-xl border border-blue-500/40 rounded-2xl p-6 shadow-xl hover:border-blue-400/60 transition-all duration-300 hover:transform hover:scale-[1.02]">
-                <h3 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
-                  <span className="text-3xl">🔧</span>
+                <h3 className="text-2xl font-bold text-white mb-4">
                   How It Works
                 </h3>
                 <ol className="space-y-3 text-gray-300">
@@ -431,7 +413,7 @@ export default function Home() {
                     <span>Your launch is saved and displayed in Recent Launches</span>
                   </li>
                   <li className="flex gap-3">
-                    <span className="flex-shrink-0 w-7 h-7 bg-green-600 rounded-full flex items-center justify-center font-bold text-sm">✓</span>
+                    <span className="flex-shrink-0 w-7 h-7 bg-green-600 rounded-full flex items-center justify-center font-bold text-sm">5</span>
                     <span className="font-bold text-green-400">Everything is handled automatically!</span>
                   </li>
                 </ol>
@@ -439,25 +421,20 @@ export default function Home() {
 
               {/* Features */}
               <div className="bg-gradient-to-br from-orange-900/40 to-red-900/40 backdrop-blur-xl border border-orange-500/40 rounded-2xl p-6 shadow-xl hover:border-orange-400/60 transition-all duration-300 hover:transform hover:scale-[1.02]">
-                <h3 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
-                  <span className="text-3xl">✨</span>
+                <h3 className="text-2xl font-bold text-white mb-4">
                   Features
                 </h3>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="bg-black/30 rounded-lg p-3 border border-orange-500/30">
-                    <div className="text-2xl mb-1">🔗</div>
                     <div className="text-xs text-gray-300 font-semibold">Full Metadata</div>
                   </div>
                   <div className="bg-black/30 rounded-lg p-3 border border-orange-500/30">
-                    <div className="text-2xl mb-1">🚀</div>
                     <div className="text-xs text-gray-300 font-semibold">Recent Launches</div>
                   </div>
                   <div className="bg-black/30 rounded-lg p-3 border border-orange-500/30">
-                    <div className="text-2xl mb-1">⚡</div>
                     <div className="text-xs text-gray-300 font-semibold">Instant Launch</div>
                   </div>
                   <div className="bg-black/30 rounded-lg p-3 border border-orange-500/30">
-                    <div className="text-2xl mb-1">🔒</div>
                     <div className="text-xs text-gray-300 font-semibold">Secure IPFS</div>
                   </div>
                 </div>
@@ -470,7 +447,7 @@ export default function Home() {
         {recentLaunches.length > 0 && (
           <div className="max-w-6xl mx-auto mt-16">
             <h2 className="text-4xl font-black bg-gradient-to-r from-green-400 via-emerald-400 to-teal-400 bg-clip-text text-transparent mb-8 text-center">
-              🚀 Recent Launches
+              Recent Launches
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {recentLaunches.map((launch) => (
@@ -513,7 +490,7 @@ export default function Home() {
 
         {/* Footer */}
         <footer className="mt-16 text-center text-gray-500 text-sm">
-          <p>Built with 🔥 for the Solana community</p>
+          <p>Built for the Solana community</p>
         </footer>
       </div>
 
