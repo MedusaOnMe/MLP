@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, symbol, description, imageUrl } = body;
+    const { name, symbol, description, imageUrl, website, twitter, telegram, discord } = body;
 
     if (!name || !symbol || !imageUrl) {
       return NextResponse.json(
@@ -21,12 +21,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const metadata = {
+    const metadata: any = {
       name,
       symbol,
       description,
       image: imageUrl,
     };
+
+    // Add optional social links if provided
+    if (website) metadata.external_url = website;
+    if (twitter || telegram || discord) {
+      metadata.extensions = {};
+      if (twitter) metadata.extensions.twitter = twitter;
+      if (telegram) metadata.extensions.telegram = telegram;
+      if (discord) metadata.extensions.discord = discord;
+    }
 
     const response = await fetch("https://api.pinata.cloud/pinning/pinJSONToIPFS", {
       method: "POST",

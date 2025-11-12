@@ -31,11 +31,16 @@ export interface CreateTokenParams {
   isMayhemMode: boolean;
 }
 
+export interface CreateTokenResult {
+  signature: string;
+  mint: string;
+}
+
 export async function createToken(
   connection: Connection,
   wallet: any,
   params: CreateTokenParams
-): Promise<string> {
+): Promise<CreateTokenResult> {
   try {
     const provider = new anchor.AnchorProvider(
       connection,
@@ -123,7 +128,10 @@ export async function createToken(
       .signers([mint])
       .rpc();
 
-    return signature;
+    return {
+      signature,
+      mint: mint.publicKey.toString(),
+    };
   } catch (error) {
     console.error("Error creating token:", error);
     throw error;
@@ -154,12 +162,20 @@ export async function uploadImageToPinata(file: File): Promise<string> {
   }
 }
 
+export interface TokenMetadata {
+  name: string;
+  symbol: string;
+  description: string;
+  imageUrl: string;
+  website?: string;
+  twitter?: string;
+  telegram?: string;
+  discord?: string;
+}
+
 // Upload metadata JSON to IPFS via server-side API
 export async function uploadMetadataToPinata(
-  name: string,
-  symbol: string,
-  description: string,
-  imageUrl: string
+  metadata: TokenMetadata
 ): Promise<string> {
   try {
     const response = await fetch("/api/upload-metadata", {
@@ -167,12 +183,7 @@ export async function uploadMetadataToPinata(
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        name,
-        symbol,
-        description,
-        imageUrl,
-      }),
+      body: JSON.stringify(metadata),
     });
 
     if (!response.ok) {
@@ -184,6 +195,119 @@ export async function uploadMetadataToPinata(
     return data.url;
   } catch (error) {
     console.error("Error uploading metadata:", error);
+    throw error;
+  }
+}
+
+export interface BuyTokenParams {
+  mint: PublicKey;
+  solAmount: number; // SOL amount to spend
+  minTokensOut: number; // Minimum tokens expected (slippage protection)
+}
+
+// Buy tokens from bonding curve (dev buy)
+export async function buyTokens(
+  connection: Connection,
+  wallet: any,
+  params: BuyTokenParams
+): Promise<string> {
+  try {
+    const provider = new anchor.AnchorProvider(
+      connection,
+      wallet,
+      anchor.AnchorProvider.defaultOptions()
+    );
+
+    const program = new anchor.Program(
+      pumpIdl as anchor.Idl,
+      provider
+    );
+
+    // Derive bonding curve PDA
+    const [bondingCurve] = PublicKey.findProgramAddressSync(
+      [Buffer.from("bonding-curve"), params.mint.toBuffer()],
+      PUMP_PROGRAM_ID
+    );
+
+    // Get associated token account for bonding curve
+    const [bondingCurveAta] = PublicKey.findProgramAddressSync(
+      [
+        bondingCurve.toBuffer(),
+        TOKEN_2022_PROGRAM_ID.toBuffer(),
+        params.mint.toBuffer(),
+      ],
+      ASSOCIATED_TOKEN_PROGRAM_ID
+    );
+
+    // Get user's token account
+    const [userAta] = PublicKey.findProgramAddressSync(
+      [
+        wallet.publicKey.toBuffer(),
+        TOKEN_2022_PROGRAM_ID.toBuffer(),
+        params.mint.toBuffer(),
+      ],
+      ASSOCIATED_TOKEN_PROGRAM_ID
+    );
+
+    // Convert SOL to lamports
+    const solInLamports = Math.floor(params.solAmount * 1e9);
+    const minTokensOutAmount = Math.floor(params.minTokensOut * 1e6); // Assuming 6 decimals
+
+    // Derive global volume accumulator
+    const [globalVolumeAccumulator] = PublicKey.findProgramAddressSync(
+      [Buffer.from("global-volume-accumulator")],
+      PUMP_PROGRAM_ID
+    );
+
+    // Derive user volume accumulator
+    const [userVolumeAccumulator] = PublicKey.findProgramAddressSync(
+      [Buffer.from("user-volume-accumulator"), wallet.publicKey.toBuffer()],
+      PUMP_PROGRAM_ID
+    );
+
+    // Derive fee config
+    const FEE_PROGRAM_ID = new PublicKey("pfeeUxB6jkeY1Hxd7CsFCAjcbHA9rWtchMGdZ6VojVZ");
+    const [feeConfig] = PublicKey.findProgramAddressSync(
+      [
+        Buffer.from("fee-config"),
+        Buffer.from([
+          1, 86, 224, 246, 147, 102, 90, 207, 68, 219, 21, 104, 191, 23, 91, 170,
+          81, 137, 203, 151, 245, 210, 255, 59, 101, 93, 43, 182, 253, 109, 24, 176
+        ])
+      ],
+      FEE_PROGRAM_ID
+    );
+
+    // Call buy_exact_sol_in instruction
+    const signature = await program.methods
+      .buyExactSolIn(
+        new anchor.BN(solInLamports),
+        new anchor.BN(minTokensOutAmount),
+        { some: true } // track_volume = Some(true)
+      )
+      .accounts({
+        global: GLOBAL_ACCOUNT,
+        feeRecipient: FEE_RECIPIENT,
+        mint: params.mint,
+        bondingCurve: bondingCurve,
+        associatedBondingCurve: bondingCurveAta,
+        associatedUser: userAta,
+        user: wallet.publicKey,
+        systemProgram: SYSTEM_PROGRAM_ID,
+        tokenProgram: TOKEN_2022_PROGRAM_ID,
+        creatorVault: wallet.publicKey, // Will be derived by program
+        eventAuthority: EVENT_AUTHORITY,
+        program: PUMP_PROGRAM_ID,
+        globalVolumeAccumulator: globalVolumeAccumulator,
+        userVolumeAccumulator: userVolumeAccumulator,
+        feeConfig: feeConfig,
+        feeProgram: FEE_PROGRAM_ID,
+      })
+      .rpc();
+
+    return signature;
+  } catch (error) {
+    console.error("Error buying tokens:", error);
     throw error;
   }
 }

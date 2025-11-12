@@ -1,9 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
-import { createToken, uploadImageToPinata, uploadMetadataToPinata } from "@/lib/pump";
+import { PublicKey } from "@solana/web3.js";
+import { createToken, uploadImageToPinata, uploadMetadataToPinata, buyTokens, type TokenMetadata } from "@/lib/pump";
+
+interface LaunchedToken {
+  id: string;
+  mint: string;
+  name: string;
+  symbol: string;
+  imageUrl: string;
+  creator: string;
+  signature: string;
+  timestamp: number;
+  pumpfunUrl: string;
+}
 
 export default function Home() {
   const { connection } = useConnection();
@@ -13,11 +26,36 @@ export default function Home() {
   const [symbol, setSymbol] = useState("");
   const [description, setDescription] = useState("");
   const [image, setImage] = useState<File | null>(null);
+  const [website, setWebsite] = useState("");
+  const [twitter, setTwitter] = useState("");
+  const [telegram, setTelegram] = useState("");
   const [isMayhemMode, setIsMayhemMode] = useState(true);
+  const [devBuyEnabled, setDevBuyEnabled] = useState(false);
+  const [devBuyAmount, setDevBuyAmount] = useState(0.1);
+
   const [loading, setLoading] = useState(false);
-  const [status, setStatus] = useState("");
   const [error, setError] = useState("");
+  const [status, setStatus] = useState("");
   const [signature, setSignature] = useState("");
+  const [createdMint, setCreatedMint] = useState<string | null>(null);
+  const [recentLaunches, setRecentLaunches] = useState<LaunchedToken[]>([]);
+
+  // Fetch recent launches on mount
+  useEffect(() => {
+    fetchRecentLaunches();
+  }, []);
+
+  const fetchRecentLaunches = async () => {
+    try {
+      const response = await fetch("/api/get-launches?limit=6");
+      if (response.ok) {
+        const data = await response.json();
+        setRecentLaunches(data.launches || []);
+      }
+    } catch (error) {
+      console.error("Error fetching launches:", error);
+    }
+  };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -42,6 +80,7 @@ export default function Home() {
     setError("");
     setStatus("");
     setSignature("");
+    setCreatedMint(null);
 
     try {
       // Step 1: Upload image to IPFS
@@ -50,11 +89,21 @@ export default function Home() {
 
       // Step 2: Upload metadata to IPFS
       setStatus("Uploading metadata to IPFS...");
-      const metadataUri = await uploadMetadataToPinata(name, symbol, description, imageUrl);
+      const metadata: TokenMetadata = {
+        name,
+        symbol,
+        description,
+        imageUrl,
+        website: website || undefined,
+        twitter: twitter || undefined,
+        telegram: telegram || undefined,
+        discord: discord || undefined,
+      };
+      const metadataUri = await uploadMetadataToPinata(metadata);
 
       // Step 3: Create token on-chain
       setStatus("Creating token on-chain...");
-      const sig = await createToken(connection, wallet, {
+      const result = await createToken(connection, wallet, {
         name,
         symbol,
         uri: metadataUri,
@@ -62,14 +111,39 @@ export default function Home() {
         isMayhemMode,
       });
 
-      setSignature(sig);
+      setSignature(result.signature);
+      setCreatedMint(result.mint);
+
+      // Step 4: Save to Firebase
+      setStatus("Saving launch data...");
+      await fetch("/api/save-launch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mint: result.mint,
+          name,
+          symbol,
+          imageUrl,
+          creator: wallet.publicKey.toString(),
+          signature: result.signature,
+          timestamp: Date.now(),
+        }),
+      });
+
       setStatus("Token created successfully!");
+
+      // Refresh recent launches
+      fetchRecentLaunches();
 
       // Reset form
       setName("");
       setSymbol("");
       setDescription("");
       setImage(null);
+      setWebsite("");
+      setTwitter("");
+      setTelegram("");
+      setDiscord("");
       const fileInput = document.getElementById("image-input") as HTMLInputElement;
       if (fileInput) fileInput.value = "";
     } catch (err: any) {
@@ -81,190 +155,391 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-black to-red-900">
-      <div className="container mx-auto px-4 py-8">
+    <div className="min-h-screen bg-gradient-to-br from-black via-purple-950 to-red-950 relative overflow-hidden">
+      {/* Animated background orbs */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-1/2 -left-1/2 w-full h-full bg-purple-600/10 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-red-600/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
+      </div>
+
+      <div className="relative z-10 container mx-auto px-4 py-8">
         {/* Header */}
-        <div className="flex justify-between items-center mb-12">
+        <header className="flex justify-between items-center mb-12">
           <div>
-            <h1 className="text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-red-500">
+            <h1 className="text-6xl font-black bg-gradient-to-r from-purple-400 via-pink-400 to-red-400 bg-clip-text text-transparent mb-2 animate-gradient">
               MayhemPad
             </h1>
-            <p className="text-gray-400 mt-2">Launch tokens with Mayhem Mode</p>
+            <p className="text-gray-400 text-lg">Launch tokens with Mayhem Mode 🔥</p>
           </div>
-          <WalletMultiButton />
+          <WalletMultiButton className="!bg-gradient-to-r !from-purple-600 !to-red-600 hover:!from-purple-700 hover:!to-red-700 !transition-all !duration-300 !rounded-xl !font-bold" />
+        </header>
+
+        <div className="max-w-6xl mx-auto">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Main Form */}
+            <div className="bg-black/40 backdrop-blur-xl border border-purple-500/30 rounded-2xl p-8 shadow-2xl hover:border-purple-500/50 transition-all duration-300">
+              <h2 className="text-3xl font-bold text-white mb-6 flex items-center gap-3">
+                <span className="text-4xl">🚀</span>
+                Create Your Token
+              </h2>
+
+              <form onSubmit={handleSubmit} className="space-y-6">
+                {/* Token Info */}
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-purple-300 mb-2">
+                      Token Name *
+                    </label>
+                    <input
+                      type="text"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      className="w-full px-4 py-3 bg-gray-900/70 border border-purple-500/40 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/50 transition"
+                      placeholder="Mayhem Token"
+                      disabled={loading}
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-purple-300 mb-2">
+                      Symbol *
+                    </label>
+                    <input
+                      type="text"
+                      value={symbol}
+                      onChange={(e) => setSymbol(e.target.value.toUpperCase())}
+                      className="w-full px-4 py-3 bg-gray-900/70 border border-purple-500/40 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/50 transition uppercase"
+                      placeholder="MAYHEM"
+                      disabled={loading}
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-purple-300 mb-2">
+                      Description *
+                    </label>
+                    <textarea
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      className="w-full px-4 py-3 bg-gray-900/70 border border-purple-500/40 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/50 transition resize-none"
+                      placeholder="Describe your token and its purpose..."
+                      rows={3}
+                      disabled={loading}
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-purple-300 mb-2">
+                      Token Image *
+                    </label>
+                    <input
+                      id="image-input"
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageChange}
+                      className="w-full px-4 py-3 bg-gray-900/70 border border-purple-500/40 rounded-xl text-white file:mr-4 file:py-2 file:px-6 file:rounded-lg file:border-0 file:text-sm file:font-bold file:bg-gradient-to-r file:from-purple-600 file:to-pink-600 file:text-white hover:file:from-purple-700 hover:file:to-pink-700 focus:outline-none transition cursor-pointer"
+                      disabled={loading}
+                      required
+                    />
+                    <p className="text-xs text-gray-500 mt-2 flex items-center gap-1">
+                      <span>📌</span> Automatically uploaded to IPFS via Pinata
+                    </p>
+                  </div>
+                </div>
+
+                {/* Social Links (Optional) */}
+                <div className="border-t border-purple-500/20 pt-6">
+                  <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                    <span>🌐</span> Social Links (Optional)
+                  </h3>
+                  <div className="space-y-3">
+                    <input
+                      type="url"
+                      value={website}
+                      onChange={(e) => setWebsite(e.target.value)}
+                      className="w-full px-4 py-2 bg-gray-900/50 border border-purple-500/30 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition text-sm"
+                      placeholder="🌍 Website URL"
+                      disabled={loading}
+                    />
+                    <input
+                      type="text"
+                      value={twitter}
+                      onChange={(e) => setTwitter(e.target.value)}
+                      className="w-full px-4 py-2 bg-gray-900/50 border border-purple-500/30 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition text-sm"
+                      placeholder="🐦 Twitter/X handle"
+                      disabled={loading}
+                    />
+                    <input
+                      type="text"
+                      value={telegram}
+                      onChange={(e) => setTelegram(e.target.value)}
+                      className="w-full px-4 py-2 bg-gray-900/50 border border-purple-500/30 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition text-sm"
+                      placeholder="✈️ Telegram link"
+                      disabled={loading}
+                    />
+                    <input
+                      type="text"
+                      value={discord}
+                      onChange={(e) => setDiscord(e.target.value)}
+                      className="w-full px-4 py-2 bg-gray-900/50 border border-purple-500/30 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition text-sm"
+                      placeholder="💬 Discord invite"
+                      disabled={loading}
+                    />
+                  </div>
+                </div>
+
+                {/* Mayhem Mode Toggle */}
+                <div className="flex items-center justify-between p-5 bg-gradient-to-r from-purple-900/40 to-red-900/40 border border-purple-500/50 rounded-xl hover:border-purple-400/70 transition">
+                  <div>
+                    <label className="block text-base font-bold text-purple-200 mb-1 flex items-center gap-2">
+                      <span className="text-2xl">⚡</span>
+                      Mayhem Mode
+                    </label>
+                    <p className="text-xs text-gray-400">Token-2022 with enhanced features</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsMayhemMode(!isMayhemMode)}
+                    className={`relative w-16 h-8 rounded-full transition-all duration-300 ${
+                      isMayhemMode ? "bg-gradient-to-r from-purple-600 to-red-600" : "bg-gray-700"
+                    }`}
+                    disabled={loading}
+                  >
+                    <span
+                      className={`absolute top-1 left-1 w-6 h-6 bg-white rounded-full transition-transform duration-300 ${
+                        isMayhemMode ? "translate-x-8" : ""
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {/* Dev Buy Section - Coming Soon */}
+                <div className="border-t border-purple-500/20 pt-6">
+                  <div className="flex items-center justify-between p-4 bg-gray-900/30 border border-gray-600/30 rounded-xl">
+                    <div>
+                      <label className="block text-base font-bold text-gray-400 flex items-center gap-2">
+                        <span className="text-2xl">💰</span>
+                        Dev Buy
+                      </label>
+                      <p className="text-xs text-gray-500">Coming soon - atomic create + buy in one transaction</p>
+                    </div>
+                    <span className="px-3 py-1 bg-purple-900/50 border border-purple-500/50 rounded-full text-xs font-bold text-purple-300">
+                      Soon
+                    </span>
+                  </div>
+                </div>
+
+                {/* Submit Button */}
+                <button
+                  type="submit"
+                  disabled={loading || !wallet.publicKey}
+                  className="w-full py-4 bg-gradient-to-r from-purple-600 via-pink-600 to-red-600 text-white font-bold rounded-xl hover:from-purple-700 hover:via-pink-700 hover:to-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98] shadow-lg hover:shadow-purple-500/50 text-lg"
+                >
+                  {loading ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <span className="animate-spin">⏳</span>
+                      {status || "Processing..."}
+                    </span>
+                  ) : (
+                    <span className="flex items-center justify-center gap-2">
+                      🚀 Launch Token
+                    </span>
+                  )}
+                </button>
+
+                {/* Status Messages */}
+                {error && (
+                  <div className="p-4 bg-red-900/30 border border-red-500/50 rounded-xl text-red-200 text-sm animate-in slide-in-from-top">
+                    <span className="font-bold">❌ Error:</span> {error}
+                  </div>
+                )}
+
+                {signature && (
+                  <div className="p-4 bg-green-900/30 border border-green-500/50 rounded-xl space-y-2 animate-in slide-in-from-top">
+                    <p className="text-green-200 font-bold flex items-center gap-2">
+                      <span>✅</span> {status}
+                    </p>
+                    <a
+                      href={`https://solscan.io/tx/${signature}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-green-400 hover:text-green-300 text-sm break-all underline block"
+                    >
+                      View on Solscan →
+                    </a>
+                  </div>
+                )}
+              </form>
+            </div>
+
+            {/* Info Cards */}
+            <div className="space-y-6">
+              {/* What is Mayhem Mode */}
+              <div className="bg-gradient-to-br from-purple-900/40 to-pink-900/40 backdrop-blur-xl border border-purple-500/40 rounded-2xl p-6 shadow-xl hover:border-purple-400/60 transition-all duration-300 hover:transform hover:scale-[1.02]">
+                <h3 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
+                  <span className="text-3xl">⚡</span>
+                  What is Mayhem Mode?
+                </h3>
+                <p className="text-gray-300 mb-4 leading-relaxed">
+                  Mayhem Mode uses <span className="text-purple-400 font-bold">Token-2022</span> (the next-generation token standard)
+                  and the Mayhem protocol to create tokens with advanced features and enhanced capabilities.
+                </p>
+                <ul className="space-y-2 text-gray-300">
+                  <li className="flex items-start gap-2">
+                    <span className="text-purple-400">▸</span>
+                    <span>Token-2022 standard support</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-purple-400">▸</span>
+                    <span>Advanced bonding curve mechanics</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-purple-400">▸</span>
+                    <span>Integrated with Mayhem protocol infrastructure</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-purple-400">▸</span>
+                    <span>Enhanced fee distribution system</span>
+                  </li>
+                </ul>
+              </div>
+
+              {/* How it Works */}
+              <div className="bg-gradient-to-br from-blue-900/40 to-cyan-900/40 backdrop-blur-xl border border-blue-500/40 rounded-2xl p-6 shadow-xl hover:border-blue-400/60 transition-all duration-300 hover:transform hover:scale-[1.02]">
+                <h3 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
+                  <span className="text-3xl">🔧</span>
+                  How It Works
+                </h3>
+                <ol className="space-y-3 text-gray-300">
+                  <li className="flex gap-3">
+                    <span className="flex-shrink-0 w-7 h-7 bg-blue-600 rounded-full flex items-center justify-center font-bold text-sm">1</span>
+                    <span>Upload your token image - automatically goes to IPFS via Pinata</span>
+                  </li>
+                  <li className="flex gap-3">
+                    <span className="flex-shrink-0 w-7 h-7 bg-blue-600 rounded-full flex items-center justify-center font-bold text-sm">2</span>
+                    <span>Metadata JSON is created and uploaded to IPFS</span>
+                  </li>
+                  <li className="flex gap-3">
+                    <span className="flex-shrink-0 w-7 h-7 bg-blue-600 rounded-full flex items-center justify-center font-bold text-sm">3</span>
+                    <span>Token is created on-chain with the metadata URI</span>
+                  </li>
+                  <li className="flex gap-3">
+                    <span className="flex-shrink-0 w-7 h-7 bg-blue-600 rounded-full flex items-center justify-center font-bold text-sm">4</span>
+                    <span>Your launch is saved and displayed in Recent Launches</span>
+                  </li>
+                  <li className="flex gap-3">
+                    <span className="flex-shrink-0 w-7 h-7 bg-green-600 rounded-full flex items-center justify-center font-bold text-sm">✓</span>
+                    <span className="font-bold text-green-400">Everything is handled automatically!</span>
+                  </li>
+                </ol>
+              </div>
+
+              {/* Features */}
+              <div className="bg-gradient-to-br from-orange-900/40 to-red-900/40 backdrop-blur-xl border border-orange-500/40 rounded-2xl p-6 shadow-xl hover:border-orange-400/60 transition-all duration-300 hover:transform hover:scale-[1.02]">
+                <h3 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
+                  <span className="text-3xl">✨</span>
+                  Features
+                </h3>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-black/30 rounded-lg p-3 border border-orange-500/30">
+                    <div className="text-2xl mb-1">🔗</div>
+                    <div className="text-xs text-gray-300 font-semibold">Full Metadata</div>
+                  </div>
+                  <div className="bg-black/30 rounded-lg p-3 border border-orange-500/30">
+                    <div className="text-2xl mb-1">🚀</div>
+                    <div className="text-xs text-gray-300 font-semibold">Recent Launches</div>
+                  </div>
+                  <div className="bg-black/30 rounded-lg p-3 border border-orange-500/30">
+                    <div className="text-2xl mb-1">⚡</div>
+                    <div className="text-xs text-gray-300 font-semibold">Instant Launch</div>
+                  </div>
+                  <div className="bg-black/30 rounded-lg p-3 border border-orange-500/30">
+                    <div className="text-2xl mb-1">🔒</div>
+                    <div className="text-xs text-gray-300 font-semibold">Secure IPFS</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* Main Content */}
-        <div className="max-w-2xl mx-auto">
-          <div className="bg-black/50 backdrop-blur-lg border border-purple-500/30 rounded-2xl p-8 shadow-2xl">
-            <h2 className="text-3xl font-bold mb-6 text-white">Create Your Token</h2>
-
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Name */}
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Token Name
-                </label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full px-4 py-3 bg-gray-900/50 border border-purple-500/30 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition"
-                  placeholder="e.g., Mayhem Token"
-                  disabled={loading}
-                  required
-                />
-              </div>
-
-              {/* Symbol */}
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Token Symbol
-                </label>
-                <input
-                  type="text"
-                  value={symbol}
-                  onChange={(e) => setSymbol(e.target.value)}
-                  className="w-full px-4 py-3 bg-gray-900/50 border border-purple-500/30 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition"
-                  placeholder="e.g., MAYHEM"
-                  disabled={loading}
-                  required
-                />
-              </div>
-
-              {/* Description */}
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Description
-                </label>
-                <textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  className="w-full px-4 py-3 bg-gray-900/50 border border-purple-500/30 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition"
-                  placeholder="Describe your token..."
-                  rows={3}
-                  disabled={loading}
-                  required
-                />
-              </div>
-
-              {/* Image Upload */}
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Token Image
-                </label>
-                <input
-                  id="image-input"
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageChange}
-                  className="w-full px-4 py-3 bg-gray-900/50 border border-purple-500/30 rounded-lg text-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-purple-600 file:text-white hover:file:bg-purple-700 focus:outline-none transition"
-                  disabled={loading}
-                  required
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Image will be automatically uploaded to IPFS via Pinata
-                </p>
-              </div>
-
-              {/* Mayhem Mode Toggle */}
-              <div className="flex items-center justify-between p-4 bg-gradient-to-r from-purple-900/30 to-red-900/30 border border-purple-500/50 rounded-lg">
-                <div>
-                  <label className="block text-sm font-bold text-purple-300 mb-1">
-                    Mayhem Mode
-                  </label>
-                  <p className="text-xs text-gray-400">
-                    Enable for Token-2022 with mayhem protocol features
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setIsMayhemMode(!isMayhemMode)}
-                  disabled={loading}
-                  className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors ${
-                    isMayhemMode ? "bg-purple-600" : "bg-gray-600"
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform ${
-                      isMayhemMode ? "translate-x-7" : "translate-x-1"
-                    }`}
-                  />
-                </button>
-              </div>
-
-              {/* Submit Button */}
-              <button
-                type="submit"
-                disabled={loading || !wallet.publicKey}
-                className="w-full py-4 bg-gradient-to-r from-purple-600 to-red-600 hover:from-purple-700 hover:to-red-700 disabled:from-gray-600 disabled:to-gray-700 text-white font-bold rounded-lg transition-all transform hover:scale-105 disabled:scale-100 shadow-lg"
-              >
-                {loading ? "Creating..." : "Launch Token"}
-              </button>
-            </form>
-
-            {/* Status Messages */}
-            {status && (
-              <div className="mt-6 p-4 bg-green-900/30 border border-green-500/50 rounded-lg">
-                <p className="text-green-400 font-medium">{status}</p>
-              </div>
-            )}
-
-            {error && (
-              <div className="mt-6 p-4 bg-red-900/30 border border-red-500/50 rounded-lg">
-                <p className="text-red-400 font-medium">{error}</p>
-              </div>
-            )}
-
-            {signature && (
-              <div className="mt-6 p-4 bg-blue-900/30 border border-blue-500/50 rounded-lg">
-                <p className="text-blue-400 font-medium mb-2">Transaction Signature:</p>
+        {/* Recent Launches */}
+        {recentLaunches.length > 0 && (
+          <div className="max-w-6xl mx-auto mt-16">
+            <h2 className="text-4xl font-black bg-gradient-to-r from-green-400 via-emerald-400 to-teal-400 bg-clip-text text-transparent mb-8 text-center">
+              🚀 Recent Launches
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {recentLaunches.map((launch) => (
                 <a
-                  href={`https://solscan.io/tx/${signature}`}
+                  key={launch.id}
+                  href={launch.pumpfunUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-blue-300 hover:text-blue-200 break-all underline"
+                  className="group bg-black/40 backdrop-blur-xl border border-green-500/30 rounded-2xl p-6 shadow-xl hover:border-green-400/60 hover:transform hover:scale-[1.05] transition-all duration-300 cursor-pointer"
                 >
-                  {signature}
+                  <div className="flex items-start gap-4">
+                    {launch.imageUrl && (
+                      <img
+                        src={launch.imageUrl}
+                        alt={launch.name}
+                        className="w-16 h-16 rounded-xl object-cover border-2 border-green-500/50 group-hover:border-green-400 transition"
+                      />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-xl font-bold text-white truncate group-hover:text-green-400 transition">
+                        {launch.name}
+                      </h3>
+                      <p className="text-green-400 font-mono text-sm">${launch.symbol}</p>
+                      <p className="text-gray-500 text-xs mt-1 truncate font-mono">
+                        {launch.mint.slice(0, 8)}...{launch.mint.slice(-8)}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-4 flex items-center justify-between text-xs text-gray-400">
+                    <span>{new Date(launch.timestamp).toLocaleDateString()}</span>
+                    <span className="text-green-400 group-hover:text-green-300 transition">
+                      View on pump.fun →
+                    </span>
+                  </div>
                 </a>
-              </div>
-            )}
-          </div>
-
-          {/* Info Section */}
-          <div className="mt-8 space-y-6">
-            <div className="p-6 bg-black/30 backdrop-blur-lg border border-gray-700/30 rounded-xl">
-              <h3 className="text-xl font-bold text-white mb-3">What is Mayhem Mode?</h3>
-              <p className="text-gray-400 mb-3">
-                Mayhem Mode uses Token-2022 (the next-generation token standard) and the Mayhem protocol
-                to create tokens with advanced features and enhanced capabilities.
-              </p>
-              <ul className="list-disc list-inside text-gray-400 space-y-1">
-                <li>Token-2022 standard support</li>
-                <li>Advanced bonding curve mechanics</li>
-                <li>Integrated with Mayhem protocol infrastructure</li>
-                <li>Enhanced fee distribution system</li>
-              </ul>
-            </div>
-
-            <div className="p-6 bg-black/30 backdrop-blur-lg border border-blue-500/30 rounded-xl">
-              <h3 className="text-xl font-bold text-white mb-3">How it works</h3>
-              <ol className="list-decimal list-inside text-gray-400 space-y-2">
-                <li>Upload your token image - automatically goes to IPFS via Pinata</li>
-                <li>Metadata JSON is created and uploaded to IPFS</li>
-                <li>Token is created on-chain with the metadata URI</li>
-                <li>Everything is handled automatically!</li>
-              </ol>
-              <p className="text-gray-400 mt-3 text-sm">
-                Requires a free Pinata API key. Get one at{" "}
-                <a href="https://www.pinata.cloud/" target="_blank" className="text-blue-400 hover:underline">
-                  pinata.cloud
-                </a>
-              </p>
+              ))}
             </div>
           </div>
-        </div>
+        )}
+
+        {/* Footer */}
+        <footer className="mt-16 text-center text-gray-500 text-sm">
+          <p>Built with 🔥 for the Solana community</p>
+        </footer>
       </div>
+
+      <style jsx global>{`
+        @keyframes gradient {
+          0%, 100% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+        }
+        .animate-gradient {
+          background-size: 200% 200%;
+          animation: gradient 3s ease infinite;
+        }
+        @keyframes slide-in-from-top {
+          from {
+            opacity: 0;
+            transform: translateY(-10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        .animate-in {
+          animation: slide-in-from-top 0.3s ease-out;
+        }
+      `}</style>
     </div>
   );
 }
