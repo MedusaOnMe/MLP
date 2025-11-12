@@ -29,9 +29,9 @@ export async function POST(request: NextRequest) {
     };
 
     // Add optional social links if provided
-    if (website) metadata.external_url = website;
-    if (twitter || telegram) {
+    if (website || twitter || telegram) {
       metadata.extensions = {};
+      if (website) metadata.extensions.website = website;
       if (twitter) metadata.extensions.twitter = twitter;
       if (telegram) metadata.extensions.telegram = telegram;
     }

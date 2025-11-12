@@ -169,7 +169,25 @@ export default function Home() {
             </h1>
             <p className="text-gray-400 text-lg">Launch tokens with Mayhem Mode</p>
           </div>
-          <WalletMultiButton className="!bg-gradient-to-r !from-purple-600 !to-red-600 hover:!from-purple-700 hover:!to-red-700 !transition-all !duration-300 !rounded-xl !font-bold" />
+          <div className="flex items-center gap-4">
+            <a
+              href="https://x.com/MayhemPad"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="p-3 bg-black/40 border border-purple-500/30 rounded-xl hover:border-purple-500/50 hover:bg-purple-900/20 transition-all duration-300 group"
+              aria-label="Follow us on X"
+            >
+              <svg
+                className="w-6 h-6 text-gray-300 group-hover:text-purple-400 transition-colors"
+                fill="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+              </svg>
+            </a>
+            <WalletMultiButton className="!bg-gradient-to-r !from-purple-600 !to-red-600 hover:!from-purple-700 hover:!to-red-700 !transition-all !duration-300 !rounded-xl !font-bold" />
+          </div>
         </header>
 
         <div className="max-w-6xl mx-auto">
